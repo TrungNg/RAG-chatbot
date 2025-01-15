@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>A Minmal Chat UI with RAG</title>
+  <link rel="icon" type="image/png" href="bitcoin.png" />
+
+  <style>
+    body {
+      font-family: Arial, sans-serif; 
+      margin: 20px;
+    }
+    h1 {text-align: center;}
+    h2 {text-align: center;}
+    #logo-container {
+      margin-bottom: 20px;
+    }
+    #chat-box {
+      border: 1px solid #ccc;
+      height: 250px;
+      overflow-y: scroll;
+      margin-bottom: 10px;
+      padding: 10px;
+    }
+    #references-box {
+      border: 1px solid #ccc;
+      height: 100px;
+      overflow-y: scroll;
+      margin-bottom: 10px;
+      padding: 10px;
+    }
+    #user-input {
+      width: 70%;
+      box-sizing: border-box;
+      padding: 5px;
+      resize: none;
+    }
+    /* Improved Send Button */
+    #send-btn {
+      background-color: #007bff;
+      border: none;
+      color: #fff;
+      padding: 10px 16px;
+      cursor: pointer;
+      border-radius: 4px;
+      margin-left: 5px;
+      font-size: 14px;
+    }
+    #send-btn:hover {
+      background-color: #0056b3;
+    }
+    .msg-user {
+      color: blue;
+    }
+    .msg-assistant {
+      color: green;
+    }
+    .header-with-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center; /* This centers both logo and heading */
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+    .header-with-logo img {
+      height: 40px;
+    }
+    .header-with-logo h2 {
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Bitcoin Chat Bot</h1>
+  <div class="header-with-logo">
+    <h2>Made by Bitcoin DeAI</h2>
+    <img src="btcdeai_logo.jpg" alt="BTC DE AI Logo" />
+  </div>
+
+  <h3>What do you want to learn about Bitcoin Ecosystem?</h3>
+  <div id="chat-box"></div>
+  
+  <div>
+    <h3>References</h3>
+    <div id="references-box"></div>
+  </div>
+  
+  <textarea id="user-input" rows="3" placeholder="Type your message (Shift+Enter for line breaks)..."></textarea>
+  <button id="send-btn">Send</button>
+
+  <script>
+    const chatBox = document.getElementById('chat-box');
+    const referencesBox = document.getElementById('references-box');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+
+    let messages = [];
+
+    // 1. Shift+Enter should add a newline
+    // 2. Enter (without shift) should send the message
+    userInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if (!e.shiftKey) {
+          e.preventDefault(); // prevents a newline
+          sendMessage();
+        }
+        // If Shift+Enter, do nothing special—textarea will add a newline by default
+      }
+    });
+
+    // Clicking "Send" button also triggers sending the message
+    sendBtn.addEventListener('click', sendMessage);
+
+    function sendMessage() {
+      const content = userInput.value.trim();
+      if (!content) return;
+
+      // Append user message to chat
+      messages.push({ role: 'user', content });
+      appendChatMessage('User', content, 'msg-user');
+      userInput.value = '';
+
+      // Keep only the last 10 messages
+      messages = messages.slice(-10);
+
+      // Build request body
+      const requestBody = {
+        messages,
+        temperature: 0.7
+      };
+
+      // POST to the API
+      fetch('/api/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          appendChatMessage('Error', data.error, 'msg-assistant');
+        } else {
+          // Append assistant's response
+          const assistantMsg = data.response;
+          messages.push({ role: 'assistant', content: assistantMsg });
+          appendChatMessage('Assistant', assistantMsg, 'msg-assistant');
+
+          // Show references if present
+          showReferences(data.references || []);
+        }
+        // Keep only the last 10 messages total
+        messages = messages.slice(-10);
+      })
+      .catch(err => {
+        appendChatMessage('Error', 'Could not reach the API.', 'msg-assistant');
+        console.error(err);
+      });
+    }
+
+    function appendChatMessage(sender, text, className) {
+      const msgDiv = document.createElement('div');
+      msgDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
+      msgDiv.className = className;
+      chatBox.appendChild(msgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function showReferences(refs) {
+      referencesBox.innerHTML = '';
+      if (!refs.length) {
+        referencesBox.innerHTML = '<em>No references retrieved.</em>';
+        return;
+      }
+      refs.forEach((ref, i) => {
+        let refText = '';
+        if (typeof ref === 'string') {
+          refText = ref;
+        } else {
+          // If returning objects {title, text} from the Lambda
+          refText = `${ref.title ?? 'Reference'}: ${ref.text ?? ''}`;
+        }
+        const refDiv = document.createElement('div');
+        refDiv.textContent = `${i + 1}. ${refText}`;
+        referencesBox.appendChild(refDiv);
+      });
+    }
+  </script>
+</body>
+</html>
