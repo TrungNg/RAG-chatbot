@@ -65,7 +65,7 @@ def lambda_handler(event, context):
 
         # Invoke Bedrock model (Sonnet v2)
         response = bedrock.invoke_model(
-            modelId='anthropic.claude-3-haiku-20240307-v1:0', #'arn:aws:bedrock:ap-southeast-2:148761647764:inference-profile/apac.anthropic.claude-3-5-sonnet-20240620-v1:0', 
+            modelId='anthropic.claude-3-haiku-20240307-v1:0',
             contentType='application/json',
             accept='application/json',
             body=json.dumps({
